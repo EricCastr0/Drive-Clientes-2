@@ -1,0 +1,229 @@
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs-extra');
+
+const app = express();
+const PORT = 3001;
+const STORAGE_PATH = path.join(__dirname, '../storage');
+
+app.use(cors());
+app.use(express.json());
+
+// Garantir que a pasta de storage existe
+fs.ensureDirSync(STORAGE_PATH);
+
+// Configuração do Multer para upload
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, STORAGE_PATH);
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage });
+
+// Rota para listar arquivos
+app.get('/api/files', async (req, res) => {
+    const folderPath = req.query.folder || '';
+    const absolutePath = path.join(STORAGE_PATH, folderPath);
+
+    // Segurança: Garantir que o caminho solicitado está dentro da STORAGE_PATH
+    if (!absolutePath.startsWith(STORAGE_PATH)) {
+        return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    try {
+        if (!await fs.pathExists(absolutePath)) {
+            return res.status(404).json({ error: 'Pasta não encontrada' });
+        }
+
+        const files = await fs.readdir(absolutePath);
+        const fileDetails = await Promise.all(files.map(async (file) => {
+            const stats = await fs.stat(path.join(absolutePath, file));
+            return {
+                name: file,
+                size: stats.size,
+                createdAt: stats.birthtime,
+                isDirectory: stats.isDirectory()
+            };
+        }));
+        res.json(fileDetails);
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao listar arquivos' });
+    }
+});
+
+// Rota para upload
+app.post('/api/upload', (req, res, next) => {
+    // Definir destino dinâmico baseado na query
+    const folderPath = req.query.folder || '';
+    const absolutePath = path.join(STORAGE_PATH, folderPath);
+    
+    if (!absolutePath.startsWith(STORAGE_PATH)) {
+        return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    const storage = multer.diskStorage({
+        destination: (req, file, cb) => cb(null, absolutePath),
+        filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+    });
+    const upload = multer({ storage }).single('file');
+    
+    upload(req, res, (err) => {
+        if (err) return res.status(500).json({ error: 'Erro no upload' });
+        res.json({ message: 'Arquivo enviado com sucesso', file: req.file });
+    });
+});
+
+// Rota para criar pasta
+app.post('/api/mkdir', async (req, res) => {
+    const { name, folder } = req.body;
+    const folderPath = folder || '';
+    const absolutePath = path.resolve(STORAGE_PATH, folderPath, name);
+    
+    if (!absolutePath.startsWith(STORAGE_PATH)) {
+        return res.status(403).json({ error: 'Acesso negado' });
+    }
+    
+    try {
+        await fs.ensureDir(absolutePath);
+        res.json({ message: 'Pasta criada com sucesso' });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao criar pasta' });
+    }
+});
+
+// Função auxiliar para calcular tamanho da pasta recursivamente
+const getDirSize = async (dirPath) => {
+    let size = 0;
+    try {
+        const absoluteDirPath = path.resolve(dirPath);
+        const files = await fs.readdir(absoluteDirPath);
+        
+        for (const file of files) {
+            const filePath = path.join(absoluteDirPath, file);
+            try {
+                const stats = await fs.stat(filePath);
+                if (stats.isDirectory()) {
+                    size += await getDirSize(filePath);
+                } else {
+                    size += stats.size;
+                }
+            } catch (statError) {
+                console.warn(`Erro ao obter stats de ${filePath}:`, statError.message);
+            }
+        }
+    } catch (readdirError) {
+        console.error(`Erro ao ler diretório ${dirPath}:`, readdirError.message);
+    }
+    return size;
+};
+
+// Rota para informações de armazenamento
+app.get('/api/storage-info', async (req, res) => {
+    try {
+        const totalUsed = await getDirSize(STORAGE_PATH);
+        const limit = 10 * 1024 * 1024 * 1024; // 10 GB
+        console.log(`Calculado armazenamento: ${totalUsed} bytes de ${limit} bytes`);
+        res.json({
+            used: totalUsed,
+            limit: limit,
+            percent: Math.min((totalUsed / limit) * 100, 100)
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao calcular armazenamento' });
+    }
+});
+
+// Rota para baixar arquivo
+app.get('/api/download', async (req, res) => {
+    const logFile = path.join(__dirname, 'debug.log');
+    const log = (msg) => {
+        const line = `[${new Date().toISOString()}] ${msg}\n`;
+        fs.appendFileSync(logFile, line);
+        console.log(msg);
+    };
+
+    try {
+        const { file, folder } = req.query;
+        if (!file) {
+            log('Erro: Nome do arquivo ausente');
+            return res.status(400).json({ error: 'Nome do arquivo não fornecido' });
+        }
+
+        const normalizedFolder = (folder || '').replace(/\\/g, '/');
+        const absolutePath = path.resolve(STORAGE_PATH, normalizedFolder, file);
+        const rootPath = path.resolve(STORAGE_PATH);
+
+        log(`Solicitação: folder="${folder}", file="${file}"`);
+        log(`Caminho resolvido: ${absolutePath}`);
+
+        if (!absolutePath.startsWith(rootPath)) {
+            log('Erro: Tentativa de acesso fora do storage');
+            return res.status(403).json({ error: 'Acesso negado' });
+        }
+
+        if (await fs.pathExists(absolutePath)) {
+            log('Sucesso: Iniciando download');
+            return res.download(absolutePath);
+        } else {
+            log(`Erro: Arquivo não encontrado: ${absolutePath}`);
+            // Listar arquivos no diretório para depuração
+            const dirToLog = path.dirname(absolutePath);
+            if (await fs.pathExists(dirToLog)) {
+                const filesInDir = await fs.readdir(dirToLog);
+                log(`Arquivos no diretório ${dirToLog}: ${filesInDir.join(', ')}`);
+            } else {
+                log(`Diretório pai não existe: ${dirToLog}`);
+            }
+            return res.status(404).json({ error: 'Arquivo não encontrado' });
+        }
+    } catch (error) {
+        log(`Erro crítico: ${error.message}`);
+        res.status(500).json({ error: 'Erro ao processar download' });
+    }
+});
+
+// Rota para renomear
+app.post('/api/rename', async (req, res) => {
+    const { oldName, newName, folder } = req.body;
+    const folderPath = folder || '';
+    const oldAbsolutePath = path.join(STORAGE_PATH, folderPath, oldName);
+    const newAbsolutePath = path.join(STORAGE_PATH, folderPath, newName);
+
+    if (!oldAbsolutePath.startsWith(STORAGE_PATH) || !newAbsolutePath.startsWith(STORAGE_PATH)) {
+        return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    try {
+        await fs.rename(oldAbsolutePath, newAbsolutePath);
+        res.json({ message: 'Renomeado com sucesso' });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao renomear' });
+    }
+});
+
+// Rota para excluir
+app.post('/api/delete', async (req, res) => {
+    const { name, folder } = req.body;
+    const absolutePath = path.resolve(STORAGE_PATH, folder || '', name);
+    const rootPath = path.resolve(STORAGE_PATH);
+
+    if (!absolutePath.startsWith(rootPath) || absolutePath === rootPath) {
+        return res.status(403).json({ error: 'Acesso negado ou operação inválida' });
+    }
+
+    try {
+        await fs.remove(absolutePath);
+        res.json({ message: 'Excluído com sucesso' });
+    } catch (error) {
+        res.status(500).json({ error: 'Erro ao excluir' });
+    }
+});
+
+app.listen(PORT, () => {
+    console.log(`Servidor rodando em http://localhost:${PORT}`);
+});

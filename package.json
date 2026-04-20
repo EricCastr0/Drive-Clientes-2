@@ -1,0 +1,13 @@
+{
+  "name": "drive-clientes-root",
+  "private": true,
+  "scripts": {
+    "install-all": "npm install && cd client && npm install && cd ../server && npm install",
+    "dev": "concurrently \"npm run dev --prefix client\" \"npm run start --prefix server\"",
+    "start-server": "npm start --prefix server",
+    "start-client": "npm run dev --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
