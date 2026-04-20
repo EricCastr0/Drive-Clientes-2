@@ -31,3 +31,5 @@ O usuário solicitou:
 - Armazenamento em Tempo Real: Implementado cálculo automático do espaço usado na pasta `storage`, com barra de progresso e limites reais.
 - Integração Supabase Auth: Implementada tela de login premium conectada diretamente ao seu Supabase. Agora o sistema é protegido e exige autenticação.
 - Perfil de Usuário: Adicionado exibição de e-mail e avatar dinâmico na barra lateral, além da funcionalidade de Logout.
+- Documentação: Criado `README.md` intuitivo e moderno para o repositório no GitHub, detalhando funcionalidades, tecnologias e guia de instalação.
+
