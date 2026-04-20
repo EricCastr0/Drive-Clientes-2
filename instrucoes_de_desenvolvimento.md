@@ -32,4 +32,6 @@ O usuário solicitou:
 - Integração Supabase Auth: Implementada tela de login premium conectada diretamente ao seu Supabase. Agora o sistema é protegido e exige autenticação.
 - Perfil de Usuário: Adicionado exibição de e-mail e avatar dinâmico na barra lateral, além da funcionalidade de Logout.
 - Documentação: Criado `README.md` intuitivo e moderno para o repositório no GitHub, detalhando funcionalidades, tecnologias e guia de instalação.
+- Rebranding: Aplicação renomeada para **InfoDrive**. O esquema de cores principal foi alterado de roxo/índigo para **azul**, refletindo a nova identidade visual em todo o CSS e componentes React.
+
 

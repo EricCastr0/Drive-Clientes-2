@@ -41,7 +41,7 @@ function Login({ onLogin }) {
       <div className="login-box glass-effect">
         <div className="login-header">
           <div className="login-logo">D</div>
-          <h1>Drive Clientes</h1>
+          <h1>InfoDrive</h1>
           <p>Gerenciamento de arquivos seguro e eficiente</p>
         </div>
 

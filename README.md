@@ -1,9 +1,9 @@
-# 🚀 Drive Clientes 2
+# 🚀 InfoDrive
 
 Um sistema de gerenciamento de arquivos moderno, seguro e local, desenvolvido para oferecer controle total sobre os dados da sua empresa com uma experiência similar ao Google Drive e OneDrive.
 
 ![Status do Projeto](https://img.shields.io/badge/Status-Em_Desenvolvimento-blue?style=for-the-badge)
-![Tecnologias](https://img.shields.io/badge/Stack-React_|_Node.js_|_Supabase-purple?style=for-the-badge)
+![Tecnologias](https://img.shields.io/badge/Stack-React_|_Node.js_|_Supabase-blue?style=for-the-badge)
 
 ---
 

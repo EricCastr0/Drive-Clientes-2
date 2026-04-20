@@ -53,7 +53,7 @@
   justify-content: center;
   gap: 10px;
   font-weight: 600;
-  box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39);
+  box-shadow: 0 4px 14px 0 rgba(37, 99, 235, 0.39);
 }
 
 .new-btn:hover {
@@ -543,7 +543,7 @@
 }
 
 .ai-badge {
-  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  background: linear-gradient(135deg, var(--accent), #60a5fa);
   color: white;
   font-size: 0.75rem;
   font-weight: 800;

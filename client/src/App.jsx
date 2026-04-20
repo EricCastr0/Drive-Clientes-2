@@ -276,7 +276,7 @@ function App() {
       <aside className="sidebar glass-effect" onClick={(e) => e.stopPropagation()}>
         <div className="logo">
           <div className="logo-icon">D</div>
-          <span>Drive Clientes</span>
+          <span>InfoDrive</span>
         </div>
 
         <div className="new-menu-container">
