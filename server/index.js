@@ -3,6 +3,7 @@ const cors = require('cors');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs-extra');
+const os = require('os');
 
 const app = express();
 const PORT = 3002;
@@ -290,6 +291,20 @@ app.post('/api/delete', async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log(`Servidor rodando em http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    const interfaces = os.networkInterfaces();
+    let localIp = 'localhost';
+    
+    for (const name of Object.keys(interfaces)) {
+        for (const iface of interfaces[name]) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+                localIp = iface.address;
+                break;
+            }
+        }
+    }
+
+    console.log(`\n🚀 InfoDrive Backend`);
+    console.log(`- Local:   http://localhost:${PORT}`);
+    console.log(`- Network: http://${localIp}:${PORT}\n`);
 });

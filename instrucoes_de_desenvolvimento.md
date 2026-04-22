@@ -35,6 +35,8 @@ O usuário solicitou:
 - Rebranding: Aplicação renomeada para **InfoDrive**. O esquema de cores principal foi alterado de roxo/índigo para **azul**, refletindo a nova identidade visual em todo o CSS e componentes React.
 - Rastreamento de Metadados: Implementado sistema de armazenamento de metadados (`.metadata.json`) no servidor. Agora o sistema registra e exibe o **Proprietário** (usuário que fez o upload) e a **Data de Upload** no painel de detalhes e no resumo de cada arquivo ou pasta.
 - Limpeza de Interface: Removida a opção de "Resumo" do menu superior para simplificar a barra de ferramentas.
+- Acesso via Rede: Configurada a aplicação para ser acessível por outros dispositivos na mesma rede local. O frontend agora utiliza `window.location.hostname` para chamadas de API, e o servidor Vite foi configurado para aceitar conexões externas (`--host`). O backend também exibe agora o IP da rede local ao iniciar.
+
 
 
 

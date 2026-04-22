@@ -27,6 +27,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './supabase';
 import Login from './Login';
 
+// Configuração dinâmica para acesso via rede
+const API_URL = `http://${window.location.hostname}:3002`;
+
 function App() {
   const [user, setUser] = useState(null);
   const [viewMode, setViewMode] = useState('grid');
@@ -75,7 +78,7 @@ function App() {
 
   const fetchStorageInfo = async () => {
     try {
-      const response = await axios.get('http://localhost:3002/api/storage-info');
+      const response = await axios.get(`${API_URL}/api/storage-info`);
       setStorageInfo(response.data);
     } catch (error) {
       console.error('Erro ao buscar info de armazenamento:', error);
@@ -87,7 +90,7 @@ function App() {
   const fetchFiles = async (path = currentPath) => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:3002/api/files?folder=${encodeURIComponent(path)}`);
+      const response = await axios.get(`${API_URL}/api/files?folder=${encodeURIComponent(path)}`);
       setFiles(response.data);
       setLoading(false);
       fetchStorageInfo(); // Atualizar storage sempre que mudar de pasta ou atualizar
@@ -118,7 +121,7 @@ function App() {
   const handleDownload = async (fileToDownload = selectedFile) => {
     if (!fileToDownload || fileToDownload.isDirectory) return;
 
-    const url = `http://localhost:3002/api/download?file=${encodeURIComponent(fileToDownload.name)}&folder=${encodeURIComponent(currentPath)}`;
+    const url = `${API_URL}/api/download?file=${encodeURIComponent(fileToDownload.name)}&folder=${encodeURIComponent(currentPath)}`;
 
     try {
       const response = await axios({
@@ -160,7 +163,7 @@ function App() {
     const newFullName = extension ? `${newBaseName}${extension}` : newBaseName;
 
     try {
-      await axios.post('http://localhost:3002/api/rename', {
+      await axios.post(`${API_URL}/api/rename`, {
         oldName: selectedFile.name,
         newName: newFullName,
         folder: currentPath
@@ -184,7 +187,7 @@ function App() {
     if (!confirm(`Tem certeza que deseja excluir "${fileToDelete.name}"?`)) return;
 
     try {
-      await axios.post('http://localhost:3002/api/delete', {
+      await axios.post(`${API_URL}/api/delete`, {
         name: fileToDelete.name,
         folder: currentPath
       });
@@ -233,7 +236,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      await axios.post(`http://localhost:3002/api/upload?folder=${encodeURIComponent(currentPath)}&owner=${encodeURIComponent(user.username || user.email)}`, formData);
+      await axios.post(`${API_URL}/api/upload?folder=${encodeURIComponent(currentPath)}&owner=${encodeURIComponent(user.username || user.email)}`, formData);
       fetchFiles();
     } catch (error) {
       console.error('Erro no upload:', error);
@@ -245,7 +248,7 @@ function App() {
     if (!name) return;
 
     try {
-      await axios.post('http://localhost:3002/api/mkdir', {
+      await axios.post(`${API_URL}/api/mkdir`, {
         name,
         folder: currentPath,
         owner: user.username || user.email
