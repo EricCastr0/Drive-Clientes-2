@@ -25,12 +25,35 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// Helper para atualizar metadados
+const updateMetadata = async (folderPath, fileName, data, isDelete = false) => {
+    const absoluteFolder = path.join(STORAGE_PATH, folderPath);
+    const metadataPath = path.join(absoluteFolder, '.metadata.json');
+    
+    try {
+        await fs.ensureDir(absoluteFolder);
+        let metadata = {};
+        if (await fs.pathExists(metadataPath)) {
+            metadata = await fs.readJson(metadataPath);
+        }
+        
+        if (isDelete) {
+            delete metadata[fileName];
+        } else {
+            metadata[fileName] = { ...metadata[fileName], ...data };
+        }
+        
+        await fs.writeJson(metadataPath, metadata, { spaces: 2 });
+    } catch (e) {
+        console.error('Erro ao atualizar metadados:', e);
+    }
+};
+
 // Rota para listar arquivos
 app.get('/api/files', async (req, res) => {
     const folderPath = req.query.folder || '';
     const absolutePath = path.join(STORAGE_PATH, folderPath);
 
-    // Segurança: Garantir que o caminho solicitado está dentro da STORAGE_PATH
     if (!absolutePath.startsWith(STORAGE_PATH)) {
         return res.status(403).json({ error: 'Acesso negado' });
     }
@@ -40,16 +63,30 @@ app.get('/api/files', async (req, res) => {
             return res.status(404).json({ error: 'Pasta não encontrada' });
         }
 
+        // Carregar metadados se existirem
+        const metadataPath = path.join(absolutePath, '.metadata.json');
+        let metadata = {};
+        if (await fs.pathExists(metadataPath)) {
+            try {
+                metadata = await fs.readJson(metadataPath);
+            } catch (e) {
+                console.error('Erro ao ler metadados:', e);
+            }
+        }
+
         const files = await fs.readdir(absolutePath);
-        const fileDetails = await Promise.all(files.map(async (file) => {
-            const stats = await fs.stat(path.join(absolutePath, file));
-            return {
-                name: file,
-                size: stats.size,
-                createdAt: stats.birthtime,
-                isDirectory: stats.isDirectory()
-            };
-        }));
+        const fileDetails = await Promise.all(files
+            .filter(file => file !== '.metadata.json') // Esconder arquivo de metadados
+            .map(async (file) => {
+                const stats = await fs.stat(path.join(absolutePath, file));
+                return {
+                    name: file,
+                    size: stats.size,
+                    createdAt: stats.birthtime && stats.birthtime.getTime() > 0 ? stats.birthtime : stats.mtime,
+                    isDirectory: stats.isDirectory(),
+                    owner: metadata[file]?.owner || 'Sistema'
+                };
+            }));
         res.json(fileDetails);
     } catch (error) {
         res.status(500).json({ error: 'Erro ao listar arquivos' });
@@ -72,8 +109,15 @@ app.post('/api/upload', (req, res, next) => {
     });
     const upload = multer({ storage }).single('file');
     
-    upload(req, res, (err) => {
+    upload(req, res, async (err) => {
         if (err) return res.status(500).json({ error: 'Erro no upload' });
+        
+        // Salvar metadados do proprietário
+        const owner = req.query.owner || 'Anônimo';
+        if (req.file) {
+            await updateMetadata(folderPath, req.file.filename, { owner });
+        }
+        
         res.json({ message: 'Arquivo enviado com sucesso', file: req.file });
     });
 });
@@ -90,6 +134,11 @@ app.post('/api/mkdir', async (req, res) => {
     
     try {
         await fs.ensureDir(absolutePath);
+        
+        // Salvar metadados do proprietário
+        const owner = req.body.owner || 'Anônimo';
+        await updateMetadata(folderPath, name, { owner });
+        
         res.json({ message: 'Pasta criada com sucesso' });
     } catch (error) {
         res.status(500).json({ error: 'Erro ao criar pasta' });
@@ -200,6 +249,19 @@ app.post('/api/rename', async (req, res) => {
 
     try {
         await fs.rename(oldAbsolutePath, newAbsolutePath);
+        
+        // Atualizar metadados (mover entrada do antigo para o novo nome)
+        const absoluteFolder = path.join(STORAGE_PATH, folderPath);
+        const metadataPath = path.join(absoluteFolder, '.metadata.json');
+        if (await fs.pathExists(metadataPath)) {
+            const metadata = await fs.readJson(metadataPath);
+            if (metadata[oldName]) {
+                metadata[newName] = metadata[oldName];
+                delete metadata[oldName];
+                await fs.writeJson(metadataPath, metadata, { spaces: 2 });
+            }
+        }
+        
         res.json({ message: 'Renomeado com sucesso' });
     } catch (error) {
         res.status(500).json({ error: 'Erro ao renomear' });
@@ -218,6 +280,10 @@ app.post('/api/delete', async (req, res) => {
 
     try {
         await fs.remove(absolutePath);
+        
+        // Remover dos metadados
+        await updateMetadata(folder || '', name, null, true);
+        
         res.json({ message: 'Excluído com sucesso' });
     } catch (error) {
         res.status(500).json({ error: 'Erro ao excluir' });

@@ -17,7 +17,8 @@ import {
   FileText,
   LogIn,
   Pencil,
-  Download
+  Download,
+  Info
 } from 'lucide-react';
 import './App.css';
 import './Login.css';
@@ -35,7 +36,6 @@ function App() {
   const [currentPath, setCurrentPath] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [showSummary, setShowSummary] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [storageInfo, setStorageInfo] = useState({ used: 0, limit: 10 * 1024 * 1024 * 1024, percent: 0 });
   const [favorites, setFavorites] = useState(() => {
@@ -82,10 +82,7 @@ function App() {
     }
   };
 
-  const handleSummary = () => {
-    if (!selectedFile) return;
-    setShowSummary(true);
-  };
+
 
   const fetchFiles = async (path = currentPath) => {
     setLoading(true);
@@ -115,6 +112,7 @@ function App() {
   const handleFileSelect = (file, e) => {
     e.stopPropagation();
     setSelectedFile(file);
+    setShowDetails(true);
   };
 
   const handleDownload = async (fileToDownload = selectedFile) => {
@@ -235,7 +233,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      await axios.post(`http://localhost:3001/api/upload?folder=${encodeURIComponent(currentPath)}`, formData);
+      await axios.post(`http://localhost:3001/api/upload?folder=${encodeURIComponent(currentPath)}&owner=${encodeURIComponent(user.username || user.email)}`, formData);
       fetchFiles();
     } catch (error) {
       console.error('Erro no upload:', error);
@@ -247,7 +245,11 @@ function App() {
     if (!name) return;
 
     try {
-      await axios.post('http://localhost:3001/api/mkdir', { name, folder: currentPath });
+      await axios.post('http://localhost:3001/api/mkdir', { 
+        name, 
+        folder: currentPath,
+        owner: user.username || user.email 
+      });
       fetchFiles();
     } catch (error) {
       console.error('Erro ao criar pasta:', error);
@@ -365,10 +367,6 @@ function App() {
                 </div>
                 
                 <div className="toolbar-actions">
-                  <button className="pill-btn" onClick={handleSummary}>
-                    <FileText size={16} />
-                    <span>Resumo</span>
-                  </button>
                   {!selectedFile.isDirectory && (
                     <button className="icon-btn" onClick={() => handleDownload()} title="Baixar">
                       <Download size={20} />
@@ -376,6 +374,9 @@ function App() {
                   )}
                   <button className="icon-btn" onClick={handleRename} title="Renomear">
                     <Pencil size={20} />
+                  </button>
+                  <button className={`icon-btn ${showDetails ? 'active' : ''}`} onClick={() => setShowDetails(!showDetails)} title="Ver Detalhes">
+                    <Info size={20} />
                   </button>
                   {user?.role === 'admin' && (
                     <button className="icon-btn danger" onClick={() => handleDelete()} title="Excluir">
@@ -558,6 +559,10 @@ function App() {
                 <span>{formatDate(selectedFile.createdAt)}</span>
               </div>
               <div className="info-group">
+                <label>Proprietário</label>
+                <span>{selectedFile.owner || 'Sistema'}</span>
+              </div>
+              <div className="info-group">
                 <label>Localização</label>
                 <span>{currentPath || 'Raiz'}</span>
               </div>
@@ -575,59 +580,6 @@ function App() {
         )}
       </AnimatePresence>
 
-      {/* Summary Modal (Simplified) */}
-      <AnimatePresence>
-        {showSummary && selectedFile && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="summary-overlay" 
-            onClick={() => setShowSummary(false)}
-          >
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="summary-modal glass-effect" 
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="summary-header">
-                <h3>Informações do Arquivo</h3>
-                <button className="close-btn" onClick={() => setShowSummary(false)}>
-                  <Plus size={24} style={{ transform: 'rotate(45deg)' }} />
-                </button>
-              </div>
-              
-              <div className="summary-content">
-                <div className="summary-file-info">
-                  <FileText size={24} className="accent-color" />
-                  <span>{selectedFile.name}</span>
-                </div>
-                
-                <div className="summary-section">
-                  <div className="info-row">
-                    <label>Tipo:</label>
-                    <span>{selectedFile.isDirectory ? 'Pasta' : 'Arquivo'}</span>
-                  </div>
-                  <div className="info-row">
-                    <label>Tamanho:</label>
-                    <span>{selectedFile.isDirectory ? '--' : formatSize(selectedFile.size)}</span>
-                  </div>
-                  <div className="info-row">
-                    <label>Caminho:</label>
-                    <code>{currentPath || 'Raiz'}</code>
-                  </div>
-                  <div className="info-row">
-                    <label>Criado em:</label>
-                    <span>{formatDate(selectedFile.createdAt)}</span>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
