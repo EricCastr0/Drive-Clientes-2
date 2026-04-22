@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  Folder, 
-  File, 
-  Search, 
-  LayoutGrid, 
-  List, 
-  Plus, 
-  Clock, 
-  Star, 
-  Trash2, 
-  Settings, 
+import {
+  Folder,
+  File,
+  Search,
+  LayoutGrid,
+  List,
+  Plus,
+  Clock,
+  Star,
+  Trash2,
+  Settings,
   Users,
   ChevronRight,
   HardDrive,
@@ -75,7 +75,7 @@ function App() {
 
   const fetchStorageInfo = async () => {
     try {
-      const response = await axios.get('http://localhost:3001/api/storage-info');
+      const response = await axios.get('http://localhost:3002/api/storage-info');
       setStorageInfo(response.data);
     } catch (error) {
       console.error('Erro ao buscar info de armazenamento:', error);
@@ -87,7 +87,7 @@ function App() {
   const fetchFiles = async (path = currentPath) => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:3001/api/files?folder=${encodeURIComponent(path)}`);
+      const response = await axios.get(`http://localhost:3002/api/files?folder=${encodeURIComponent(path)}`);
       setFiles(response.data);
       setLoading(false);
       fetchStorageInfo(); // Atualizar storage sempre que mudar de pasta ou atualizar
@@ -117,9 +117,9 @@ function App() {
 
   const handleDownload = async (fileToDownload = selectedFile) => {
     if (!fileToDownload || fileToDownload.isDirectory) return;
-    
-    const url = `http://localhost:3001/api/download?file=${encodeURIComponent(fileToDownload.name)}&folder=${encodeURIComponent(currentPath)}`;
-    
+
+    const url = `http://localhost:3002/api/download?file=${encodeURIComponent(fileToDownload.name)}&folder=${encodeURIComponent(currentPath)}`;
+
     try {
       const response = await axios({
         url: url,
@@ -143,12 +143,12 @@ function App() {
 
   const handleRename = async () => {
     if (!selectedFile) return;
-    
+
     // Separar nome da extensão
     const lastDotIndex = selectedFile.name.lastIndexOf('.');
     let nameWithoutExt = selectedFile.name;
     let extension = '';
-    
+
     if (!selectedFile.isDirectory && lastDotIndex !== -1) {
       nameWithoutExt = selectedFile.name.substring(0, lastDotIndex);
       extension = selectedFile.name.substring(lastDotIndex);
@@ -160,7 +160,7 @@ function App() {
     const newFullName = extension ? `${newBaseName}${extension}` : newBaseName;
 
     try {
-      await axios.post('http://localhost:3001/api/rename', {
+      await axios.post('http://localhost:3002/api/rename', {
         oldName: selectedFile.name,
         newName: newFullName,
         folder: currentPath
@@ -174,7 +174,7 @@ function App() {
 
   const handleDelete = async (fileToDelete = selectedFile) => {
     if (!fileToDelete) return;
-    
+
     // Verificar permissão
     if (user?.role !== 'admin') {
       alert('Apenas administradores podem excluir arquivos.');
@@ -184,7 +184,7 @@ function App() {
     if (!confirm(`Tem certeza que deseja excluir "${fileToDelete.name}"?`)) return;
 
     try {
-      await axios.post('http://localhost:3001/api/delete', {
+      await axios.post('http://localhost:3002/api/delete', {
         name: fileToDelete.name,
         folder: currentPath
       });
@@ -233,7 +233,7 @@ function App() {
     formData.append('file', file);
 
     try {
-      await axios.post(`http://localhost:3001/api/upload?folder=${encodeURIComponent(currentPath)}&owner=${encodeURIComponent(user.username || user.email)}`, formData);
+      await axios.post(`http://localhost:3002/api/upload?folder=${encodeURIComponent(currentPath)}&owner=${encodeURIComponent(user.username || user.email)}`, formData);
       fetchFiles();
     } catch (error) {
       console.error('Erro no upload:', error);
@@ -245,10 +245,10 @@ function App() {
     if (!name) return;
 
     try {
-      await axios.post('http://localhost:3001/api/mkdir', { 
-        name, 
+      await axios.post('http://localhost:3002/api/mkdir', {
+        name,
         folder: currentPath,
-        owner: user.username || user.email 
+        owner: user.username || user.email
       });
       fetchFiles();
     } catch (error) {
@@ -257,7 +257,7 @@ function App() {
   };
 
   const breadcrumbs = currentPath ? currentPath.split('/') : [];
-  
+
   // Decidir quais arquivos mostrar baseado na aba ativa
   const getDisplayedFiles = () => {
     if (activeNav === 'starred') {
@@ -290,23 +290,23 @@ function App() {
             <Folder size={20} />
             <span>Nova Pasta</span>
           </button>
-          <input 
-            type="file" 
-            id="file-upload" 
-            style={{ display: 'none' }} 
-            onChange={handleUpload} 
+          <input
+            type="file"
+            id="file-upload"
+            style={{ display: 'none' }}
+            onChange={handleUpload}
           />
         </div>
 
         <nav className="side-nav">
-          <button 
+          <button
             className={`nav-item ${activeNav === 'files' ? 'active' : ''}`}
             onClick={() => { setActiveNav('files'); setCurrentPath(''); }}
           >
             <Folder size={20} />
             <span>Meus Arquivos</span>
           </button>
-          <button 
+          <button
             className={`nav-item ${activeNav === 'starred' ? 'active' : ''}`}
             onClick={() => setActiveNav('starred')}
           >
@@ -351,12 +351,12 @@ function App() {
         <header className="header glass-effect">
           <AnimatePresence mode="wait">
             {selectedFile ? (
-              <motion.div 
+              <motion.div
                 key="toolbar"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="selection-toolbar" 
+                className="selection-toolbar"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="selection-left">
@@ -365,7 +365,7 @@ function App() {
                   </button>
                   <span className="selection-count">1 item selecionado</span>
                 </div>
-                
+
                 <div className="toolbar-actions">
                   {!selectedFile.isDirectory && (
                     <button className="icon-btn" onClick={() => handleDownload()} title="Baixar">
@@ -386,7 +386,7 @@ function App() {
                 </div>
               </motion.div>
             ) : (
-              <motion.div 
+              <motion.div
                 key="search"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -394,9 +394,9 @@ function App() {
                 className="search-bar"
               >
                 <Search size={18} className="search-icon" />
-                <input 
-                  type="text" 
-                  placeholder="Pesquisar arquivos nesta pasta..." 
+                <input
+                  type="text"
+                  placeholder="Pesquisar arquivos nesta pasta..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -406,14 +406,14 @@ function App() {
 
           <div className="header-actions">
             <div className="view-toggle">
-              <button 
-                className={viewMode === 'grid' ? 'active' : ''} 
+              <button
+                className={viewMode === 'grid' ? 'active' : ''}
                 onClick={() => setViewMode('grid')}
               >
                 <LayoutGrid size={20} />
               </button>
-              <button 
-                className={viewMode === 'list' ? 'active' : ''} 
+              <button
+                className={viewMode === 'list' ? 'active' : ''}
                 onClick={() => setViewMode('list')}
               >
                 <List size={20} />
@@ -428,7 +428,7 @@ function App() {
             {breadcrumbs.map((part, i) => (
               <React.Fragment key={i}>
                 <ChevronRight size={16} />
-                <span 
+                <span
                   className={`breadcrumb-item ${i === breadcrumbs.length - 1 ? 'current' : ''}`}
                   onClick={() => navigateToBreadcrumb(i)}
                 >
@@ -444,22 +444,22 @@ function App() {
             <motion.div layout className={`file-explorer ${viewMode}`}>
               {displayedFiles.length === 0 && (
                 <div className="empty-state">
-                  {searchQuery ? 'Nenhum arquivo corresponde à busca' : 
-                   activeNav === 'starred' ? 'Você ainda não marcou nenhum favorito' : 'Nenhum arquivo encontrado'}
+                  {searchQuery ? 'Nenhum arquivo corresponde à busca' :
+                    activeNav === 'starred' ? 'Você ainda não marcou nenhum favorito' : 'Nenhum arquivo encontrado'}
                 </div>
               )}
               <AnimatePresence>
                 {displayedFiles.map((file, i) => {
                   const isStarred = favorites.some(f => f.id === `${activeNav === 'starred' ? file.path : currentPath}/${file.name}`);
-                  
+
                   return (
-                    <motion.div 
+                    <motion.div
                       layout
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ duration: 0.2 }}
-                      key={file.id || file.name} 
+                      key={file.id || file.name}
                       className={`file-card glass-effect ${selectedFile?.name === file.name ? 'selected' : ''}`}
                       onClick={(e) => handleFileSelect(file, e)}
                       onDoubleClick={() => {
@@ -475,7 +475,7 @@ function App() {
                       }}
                     >
                       <div className="card-actions-top">
-                        <button 
+                        <button
                           className={`card-star-btn ${isStarred ? 'active' : ''}`}
                           onClick={(e) => toggleFavorite(file, e)}
                           title={isStarred ? "Remover dos favoritos" : "Adicionar aos favoritos"}
@@ -484,8 +484,8 @@ function App() {
                         </button>
 
                         {!file.isDirectory && (
-                          <button 
-                            className="card-download-btn" 
+                          <button
+                            className="card-download-btn"
                             onClick={(e) => { e.stopPropagation(); handleDownload(file); }}
                             title="Baixar"
                           >
@@ -493,7 +493,7 @@ function App() {
                           </button>
                         )}
                       </div>
-                      
+
                       <div className={`file-icon ${file.isDirectory ? 'folder' : 'document'}`}>
                         {file.isDirectory ? (
                           <Folder size={48} fill="currentColor" />
@@ -519,12 +519,12 @@ function App() {
       {/* Details Sidebar */}
       <AnimatePresence>
         {showDetails && selectedFile && (
-          <motion.aside 
+          <motion.aside
             initial={{ x: 300 }}
             animate={{ x: 0 }}
             exit={{ x: 300 }}
             transition={{ type: 'spring', damping: 20, stiffness: 100 }}
-            className="details-panel glass-effect" 
+            className="details-panel glass-effect"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="details-header">

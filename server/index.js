@@ -5,7 +5,7 @@ const path = require('path');
 const fs = require('fs-extra');
 
 const app = express();
-const PORT = 3001;
+const PORT = 3002;
 const STORAGE_PATH = path.join(__dirname, '../storage');
 
 app.use(cors());
@@ -29,20 +29,20 @@ const upload = multer({ storage });
 const updateMetadata = async (folderPath, fileName, data, isDelete = false) => {
     const absoluteFolder = path.join(STORAGE_PATH, folderPath);
     const metadataPath = path.join(absoluteFolder, '.metadata.json');
-    
+
     try {
         await fs.ensureDir(absoluteFolder);
         let metadata = {};
         if (await fs.pathExists(metadataPath)) {
             metadata = await fs.readJson(metadataPath);
         }
-        
+
         if (isDelete) {
             delete metadata[fileName];
         } else {
             metadata[fileName] = { ...metadata[fileName], ...data };
         }
-        
+
         await fs.writeJson(metadataPath, metadata, { spaces: 2 });
     } catch (e) {
         console.error('Erro ao atualizar metadados:', e);
@@ -98,7 +98,7 @@ app.post('/api/upload', (req, res, next) => {
     // Definir destino dinâmico baseado na query
     const folderPath = req.query.folder || '';
     const absolutePath = path.join(STORAGE_PATH, folderPath);
-    
+
     if (!absolutePath.startsWith(STORAGE_PATH)) {
         return res.status(403).json({ error: 'Acesso negado' });
     }
@@ -108,16 +108,16 @@ app.post('/api/upload', (req, res, next) => {
         filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
     });
     const upload = multer({ storage }).single('file');
-    
+
     upload(req, res, async (err) => {
         if (err) return res.status(500).json({ error: 'Erro no upload' });
-        
+
         // Salvar metadados do proprietário
         const owner = req.query.owner || 'Anônimo';
         if (req.file) {
             await updateMetadata(folderPath, req.file.filename, { owner });
         }
-        
+
         res.json({ message: 'Arquivo enviado com sucesso', file: req.file });
     });
 });
@@ -127,18 +127,18 @@ app.post('/api/mkdir', async (req, res) => {
     const { name, folder } = req.body;
     const folderPath = folder || '';
     const absolutePath = path.resolve(STORAGE_PATH, folderPath, name);
-    
+
     if (!absolutePath.startsWith(STORAGE_PATH)) {
         return res.status(403).json({ error: 'Acesso negado' });
     }
-    
+
     try {
         await fs.ensureDir(absolutePath);
-        
+
         // Salvar metadados do proprietário
         const owner = req.body.owner || 'Anônimo';
         await updateMetadata(folderPath, name, { owner });
-        
+
         res.json({ message: 'Pasta criada com sucesso' });
     } catch (error) {
         res.status(500).json({ error: 'Erro ao criar pasta' });
@@ -151,7 +151,7 @@ const getDirSize = async (dirPath) => {
     try {
         const absoluteDirPath = path.resolve(dirPath);
         const files = await fs.readdir(absoluteDirPath);
-        
+
         for (const file of files) {
             const filePath = path.join(absoluteDirPath, file);
             try {
@@ -249,7 +249,7 @@ app.post('/api/rename', async (req, res) => {
 
     try {
         await fs.rename(oldAbsolutePath, newAbsolutePath);
-        
+
         // Atualizar metadados (mover entrada do antigo para o novo nome)
         const absoluteFolder = path.join(STORAGE_PATH, folderPath);
         const metadataPath = path.join(absoluteFolder, '.metadata.json');
@@ -261,7 +261,7 @@ app.post('/api/rename', async (req, res) => {
                 await fs.writeJson(metadataPath, metadata, { spaces: 2 });
             }
         }
-        
+
         res.json({ message: 'Renomeado com sucesso' });
     } catch (error) {
         res.status(500).json({ error: 'Erro ao renomear' });
@@ -280,10 +280,10 @@ app.post('/api/delete', async (req, res) => {
 
     try {
         await fs.remove(absolutePath);
-        
+
         // Remover dos metadados
         await updateMetadata(folder || '', name, null, true);
-        
+
         res.json({ message: 'Excluído com sucesso' });
     } catch (error) {
         res.status(500).json({ error: 'Erro ao excluir' });
