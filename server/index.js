@@ -21,7 +21,8 @@ const storage = multer.diskStorage({
         cb(null, STORAGE_PATH);
     },
     filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname);
+        const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+        cb(null, originalName);
     }
 });
 const upload = multer({ storage });
@@ -106,7 +107,10 @@ app.post('/api/upload', (req, res, next) => {
 
     const storage = multer.diskStorage({
         destination: (req, file, cb) => cb(null, absolutePath),
-        filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+        filename: (req, file, cb) => {
+            const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+            cb(null, originalName);
+        }
     });
     const upload = multer({ storage }).single('file');
 
