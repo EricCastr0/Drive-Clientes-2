@@ -41,3 +41,10 @@ O usuário solicitou:
 - Corrigido o problema de codificação UTF-8 onde caracteres especiais (ç, ã, etc.) ficavam desconfigurados.
 - Implementada a decodificação de `latin1` para `utf8` utilizando `Buffer` na configuração do Multer para garantir a integridade dos nomes dos arquivos originais.
 
+## 2026-04-27 - Implementação de Drag and Drop
+- Adicionada funcionalidade de arrastar e soltar arquivos para upload direto em qualquer lugar da aplicação.
+- Implementado overlay visual dinâmico com animações via Framer Motion para feedback de arraste.
+- Refatorada a lógica de upload para suportar múltiplos arquivos simultaneamente.
+- Adicionado indicador global de progresso de upload no canto superior direito.
+- Utilização do ícone `UploadCloud` da Lucide para o overlay de arraste.
+

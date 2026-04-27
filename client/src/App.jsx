@@ -18,7 +18,8 @@ import {
   LogIn,
   Pencil,
   Download,
-  Info
+  Info,
+  UploadCloud
 } from 'lucide-react';
 import './App.css';
 import './Login.css';
@@ -45,6 +46,8 @@ function App() {
     const saved = localStorage.getItem('drive_favorites');
     return saved ? JSON.parse(saved) : [];
   });
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('drive_favorites', JSON.stringify(favorites));
@@ -228,20 +231,61 @@ function App() {
     });
   };
 
-  const handleUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    const uploadFiles = async (filesToUpload) => {
+        const filesArray = Array.from(filesToUpload);
+        if (filesArray.length === 0) return;
 
-    const formData = new FormData();
-    formData.append('file', file);
+        setUploading(true);
+        try {
+            for (const file of filesArray) {
+                const formData = new FormData();
+                formData.append('file', file);
+                await axios.post(
+                    `${API_URL}/api/upload?folder=${encodeURIComponent(currentPath)}&owner=${encodeURIComponent(user.username || user.email)}`,
+                    formData
+                );
+            }
+            fetchFiles();
+        } catch (error) {
+            console.error('Erro no upload:', error);
+            alert('Erro ao enviar um ou mais arquivos.');
+        } finally {
+            setUploading(false);
+        }
+    };
 
-    try {
-      await axios.post(`${API_URL}/api/upload?folder=${encodeURIComponent(currentPath)}&owner=${encodeURIComponent(user.username || user.email)}`, formData);
-      fetchFiles();
-    } catch (error) {
-      console.error('Erro no upload:', error);
-    }
-  };
+    const handleUpload = (event) => {
+        const files = event.target.files;
+        if (files.length > 0) {
+            uploadFiles(files);
+        }
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Apenas desativar se sair realmente da janela ou se for o elemento alvo
+        if (e.currentTarget === e.target) {
+            setIsDragging(false);
+        }
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+
+        const droppedFiles = e.dataTransfer.files;
+        if (droppedFiles.length > 0) {
+            uploadFiles(droppedFiles);
+        }
+    };
 
   const handleCreateFolder = async () => {
     const name = prompt('Nome da nova pasta:');
@@ -275,8 +319,43 @@ function App() {
     return <Login onLogin={setUser} />;
   }
 
-  return (
-    <div className="app-container" onClick={() => { setSelectedFile(null); setShowDetails(false); }}>
+    return (
+        <div
+            className="app-container"
+            onClick={() => { setSelectedFile(null); setShowDetails(false); }}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragOver}
+        >
+            <AnimatePresence>
+                {isDragging && (
+                    <motion.div
+                        className="drag-overlay"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        onDragOver={(e) => e.preventDefault()}
+                    >
+                        <div className="drag-content">
+                            <div className="drag-icon">
+                                <UploadCloud size={64} />
+                            </div>
+                            <h2>Solte seus arquivos aqui</h2>
+                            <p>Envie arquivos diretamente para a pasta <strong>{currentPath || 'Meus Arquivos'}</strong></p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {uploading && (
+                <div className="global-loader-overlay">
+                    <div className="loader-content">
+                        <div className="spinner"></div>
+                        <span>Enviando arquivos...</span>
+                    </div>
+                </div>
+            )}
       {/* Sidebar */}
       <aside className="sidebar glass-effect" onClick={(e) => e.stopPropagation()}>
         <div className="logo">
