@@ -97,33 +97,58 @@ app.get('/api/files', async (req, res) => {
 
 // Rota para upload
 app.post('/api/upload', (req, res, next) => {
+    console.log(`[UPLOAD ROUTE HIT] Recebendo requisição de upload. Folder: ${req.query.folder}, Owner: ${req.query.owner}`);
     // Definir destino dinâmico baseado na query
     const folderPath = req.query.folder || '';
     const absolutePath = path.join(STORAGE_PATH, folderPath);
 
     if (!absolutePath.startsWith(STORAGE_PATH)) {
+        console.error('[UPLOAD ERROR] Acesso negado. Caminho absoluto fora do storage.');
         return res.status(403).json({ error: 'Acesso negado' });
     }
 
     const storage = multer.diskStorage({
-        destination: (req, file, cb) => cb(null, absolutePath),
+        destination: (req, file, cb) => {
+            fs.ensureDirSync(absolutePath);
+            cb(null, absolutePath);
+        },
         filename: (req, file, cb) => {
             const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
             cb(null, originalName);
         }
     });
-    const upload = multer({ storage }).single('file');
+    const upload = multer({ storage }).array('files');
 
     upload(req, res, async (err) => {
-        if (err) return res.status(500).json({ error: 'Erro no upload' });
+        if (err) {
+            console.error('[UPLOAD ERROR] Multer Error:', err);
+            return res.status(500).json({ error: 'Erro no upload' });
+        }
 
         // Salvar metadados do proprietário
         const owner = req.query.owner || 'Anônimo';
-        if (req.file) {
-            await updateMetadata(folderPath, req.file.filename, { owner });
+        if (req.files && req.files.length > 0) {
+            const absoluteFolder = path.join(STORAGE_PATH, folderPath);
+            const metadataPath = path.join(absoluteFolder, '.metadata.json');
+
+            try {
+                await fs.ensureDir(absoluteFolder);
+                let metadata = {};
+                if (await fs.pathExists(metadataPath)) {
+                    metadata = await fs.readJson(metadataPath);
+                }
+
+                req.files.forEach(file => {
+                    metadata[file.filename] = { ...metadata[file.filename], owner };
+                });
+
+                await fs.writeJson(metadataPath, metadata, { spaces: 2 });
+            } catch (e) {
+                console.error('Erro ao atualizar metadados em lote:', e);
+            }
         }
 
-        res.json({ message: 'Arquivo enviado com sucesso', file: req.file });
+        res.json({ message: 'Arquivos enviados com sucesso', files: req.files });
     });
 });
 

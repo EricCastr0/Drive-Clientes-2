@@ -118,7 +118,6 @@ function App() {
   const handleFileSelect = (file, e) => {
     e.stopPropagation();
     setSelectedFile(file);
-    setShowDetails(true);
   };
 
   const handleDownload = async (fileToDownload = selectedFile) => {
@@ -231,20 +230,37 @@ function App() {
     });
   };
 
-    const uploadFiles = async (filesToUpload) => {
-        const filesArray = Array.from(filesToUpload);
-        if (filesArray.length === 0) return;
+    const uploadFiles = async (filesWithPaths) => {
+        if (!filesWithPaths || filesWithPaths.length === 0) return;
 
         setUploading(true);
         try {
-            for (const file of filesArray) {
+            // Agrupar arquivos por caminho relativo
+            const filesByPath = {};
+            filesWithPaths.forEach(({ file, path }) => {
+                if (!filesByPath[path]) filesByPath[path] = [];
+                filesByPath[path].push(file);
+            });
+
+            // Fazer um upload por caminho único
+            const uploadPromises = Object.keys(filesByPath).map(relativePath => {
                 const formData = new FormData();
-                formData.append('file', file);
-                await axios.post(
-                    `${API_URL}/api/upload?folder=${encodeURIComponent(currentPath)}&owner=${encodeURIComponent(user.username || user.email)}`,
+                for (const file of filesByPath[relativePath]) {
+                    formData.append('files', file);
+                }
+                
+                let targetFolder = currentPath;
+                if (relativePath) {
+                    targetFolder = targetFolder ? `${targetFolder}/${relativePath}` : relativePath;
+                }
+                
+                return axios.post(
+                    `${API_URL}/api/upload?folder=${encodeURIComponent(targetFolder)}&owner=${encodeURIComponent(user.username || user.email)}`,
                     formData
                 );
-            }
+            });
+
+            await Promise.all(uploadPromises);
             fetchFiles();
         } catch (error) {
             console.error('Erro no upload:', error);
@@ -257,7 +273,17 @@ function App() {
     const handleUpload = (event) => {
         const files = event.target.files;
         if (files.length > 0) {
-            uploadFiles(files);
+            const filesWithPaths = Array.from(files).map(file => {
+                let path = '';
+                if (file.webkitRelativePath) {
+                    const parts = file.webkitRelativePath.split('/').filter(Boolean);
+                    if (parts.length > 1) {
+                        path = parts.slice(0, parts.length - 1).join('/');
+                    }
+                }
+                return { file, path };
+            });
+            uploadFiles(filesWithPaths);
         }
     };
 
@@ -270,20 +296,85 @@ function App() {
     const handleDragLeave = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        // Apenas desativar se sair realmente da janela ou se for o elemento alvo
         if (e.currentTarget === e.target) {
             setIsDragging(false);
         }
     };
 
-    const handleDrop = (e) => {
+    const getAllFileEntries = async (dataTransferItemList) => {
+        const fileEntries = [];
+        const queue = [];
+        
+        for (let i = 0; i < dataTransferItemList.length; i++) {
+            const item = dataTransferItemList[i];
+            if (item.kind === 'file') {
+                const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                if (entry) {
+                    queue.push(entry);
+                } else {
+                    const file = item.getAsFile();
+                    if (file) fileEntries.push({ file, path: '' });
+                }
+            }
+        }
+        
+        while (queue.length > 0) {
+            const entry = queue.shift();
+            
+            if (entry.isFile) {
+                await new Promise((resolve) => {
+                    entry.file((file) => {
+                        const parts = entry.fullPath.split('/').filter(Boolean);
+                        const pathParts = parts.slice(0, parts.length - 1);
+                        fileEntries.push({ file, path: pathParts.join('/') });
+                        resolve();
+                    });
+                });
+            } else if (entry.isDirectory) {
+                const dirReader = entry.createReader();
+                let entries = [];
+                const readAllEntries = async () => {
+                    const batch = await new Promise((resolve, reject) => {
+                        dirReader.readEntries(resolve, reject);
+                    });
+                    if (batch.length > 0) {
+                        entries = entries.concat(batch);
+                        await readAllEntries();
+                    }
+                };
+                await readAllEntries();
+                queue.push(...entries);
+            }
+        }
+        return fileEntries;
+    };
+
+    const handleDrop = async (e) => {
         e.preventDefault();
         e.stopPropagation();
         setIsDragging(false);
 
-        const droppedFiles = e.dataTransfer.files;
-        if (droppedFiles.length > 0) {
-            uploadFiles(droppedFiles);
+        const items = e.dataTransfer.items;
+        if (items) {
+            setUploading(true);
+            try {
+                const filesWithPaths = await getAllFileEntries(items);
+                if (filesWithPaths.length > 0) {
+                    await uploadFiles(filesWithPaths);
+                } else {
+                    setUploading(false);
+                }
+            } catch(error) {
+                console.error("Erro ao ler arquivos soltos", error);
+                setUploading(false);
+            }
+        } else {
+            // Fallback
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const mapped = Array.from(files).map(file => ({ file, path: '' }));
+                uploadFiles(mapped);
+            }
         }
     };
 
@@ -377,6 +468,7 @@ function App() {
             id="file-upload"
             style={{ display: 'none' }}
             onChange={handleUpload}
+            multiple
           />
         </div>
 
